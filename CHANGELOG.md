@@ -43,3 +43,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Production-ready stability
 - Comprehensive test suite
 - Migration guide from makejson.sh
+
+## [0.2.0] - 2024-11-25
+
+### Added
+- `description` field included by default in mJSON output
+- `--compact` flag to exclude description for quick analysis
+- `--member <username>` flag to filter cards by team member
+
+### Changed
+- Updated help message with new options and examples
