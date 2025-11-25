@@ -17,7 +17,7 @@ Lightweight Trello JSON to mJSON converter for team workflows.
 
 ```bash
 # Install
-curl -o mj.sh https://raw.githubusercontent.com/olga-demchuk/mj/main/mj.sh
+curl -o mj.sh https://raw.githubusercontent.com/YOUR_USERNAME/mj/main/mj.sh
 chmod +x mj.sh
 sudo mv mj.sh /usr/local/bin/mj.sh
 
@@ -58,27 +58,42 @@ mj.sh
 
 ## Output Format
 
+### Basic format (default)
+
 ```json
 [
   {
     "id": "67053c24b2e398461bb5e3fc",
-    "name": "LV-6401 Task name",
+    "name": "LV-6401 Mark photographs",
     "url": "https://trello.com/c/Dw8Y7j2C",
     "status": "Testing",
+    
     "assignees": ["slavaaq", "sergeykovalevsky"],
-    "labels": ["In Test", "Priority"],
+    "labels": ["In Test", "Incomplete"],
+    
     "project": "LV",
-    "effort": "small task",
-    "priority": "Medium",
-    "pr": ["https://github.com/org/repo/pull/5243"],
+    "effort": "a day",
+    "priority": "High",
+    
+    "pr": ["https://github.com/trafficrunners/gmbmanager/pull/5243"],
+    
     "created": "2024-10-08T10:23:45.120Z",
     "updated": "2024-11-25T09:15:33.840Z",
     "due": null,
+    
     "archived": false,
     "isMirror": false
   }
 ]
 ```
+
+### Extended format (--include-details, v0.3+)
+
+Future versions will support extended format with:
+- `description` - Full markdown description
+- `attachments` - Array of files with metadata
+- `linkedCards` - Array of linked cards with statuses
+- `checklists` - Array of checklists with items and completion data
 
 ## Supported Custom Fields
 
@@ -130,12 +145,16 @@ Current version: **0.1.0**
 
 ### v0.2 - Filtering
 - `--member <username>` - Filter by team member
-- `--status <name>` - Filter by list/status
+- `--status <n>` - Filter by list/status
 - `--critical` - Show only critical tasks
+- `--compact` - Minimal output (exclude description, checklists, attachments, activity)
 
 ### v0.3 - Extended Fields
-- `--include-details` - Add description and checklists
-- `--include-activity` - Add comments and activity log
+- `--include-details` - Add description, checklists, attachments, linkedCards
+- `--include-archived --archived-days N` - Include recently archived cards
+
+### v0.4 - Activity
+- `--include-activity` - Add unified activity timeline
 
 ### v1.0 - Stable Release
 - Full feature set
