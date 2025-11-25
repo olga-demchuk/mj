@@ -17,7 +17,7 @@ Lightweight Trello JSON to mJSON converter for team workflows.
 
 ```bash
 # Install
-curl -o mj.sh https://raw.githubusercontent.com/YOUR_USERNAME/mj/main/mj.sh
+curl -o mj.sh https://raw.githubusercontent.com/olga-demchuk/mj/main/mj.sh
 chmod +x mj.sh
 sudo mv mj.sh /usr/local/bin/mj.sh
 
