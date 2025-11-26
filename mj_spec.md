@@ -1,43 +1,86 @@
 # Спецификация mj.sh
 
-**Обновлено:** 25 ноября 2025  
-**Статус:** В разработке  
-**Цель:** Преобразование Trello JSON экспортов в компактный mJSON формат
+**Версия:** 0.4.2  
+**Обновлено:** 26 ноября 2025  
+**Репозиторий:** https://github.com/olga-demchuk/mj
 
 ---
 
-## Контекст
+## Обзор
 
-mj.sh - bash-скрипт для преобразования Trello JSON экспортов в компактный mJSON формат для ПМ-анализа. Заменяет makejson.sh с улучшенной архитектурой и упрощённым форматом вывода.
+mj.sh — bash-скрипт для преобразования Trello JSON экспортов в компактный mJSON формат для ПМ-анализа.
 
 **Ключевые преимущества:**
 - Работает с локальными JSON-экспортами (не требует API)
-- 34MB Trello JSON → 106KB mJSON (в 300 раз меньше)
+- 34MB Trello JSON → 106KB mJSON (компрессия ~300x)
+- С флагом --compact: 56KB (компрессия ~600x)
 - Чистая семантичная структура данных
-- Минимум зависимостей (только jq)
+- Единственная зависимость: jq
 
 ---
 
-## Источник данных
+## Установка
 
-**Trello JSON Export:**
-- Экспорт через UI: Board menu → Print and Export → Export as JSON
-- Файл по умолчанию: `*all-projects.json` на Desktop
-- Структура: single JSON объект с массивами `cards`, `lists`, `members`, `labels`, `customFields`, `actions`
+```bash
+# Из GitHub
+curl -o mj.sh https://raw.githubusercontent.com/olga-demchuk/mj/main/mj.sh
+chmod +x mj.sh
+mv mj.sh /usr/local/bin/mj.sh
 
-**Дополнительные доски для resolve mirrors:**
-- `lindai-chat.json`
-- `web20-ranker.json`
-- `web20-mobile.json`
-- `customer-support.json`
+# Проверка
+mj.sh --version
+```
+
+---
+
+## Использование
+
+```bash
+mj.sh [OPTIONS]
+
+OPTIONS:
+  --input <file>      Путь к Trello JSON файлу
+                      По умолчанию: ищет *all-projects.json на Desktop
+  
+  --output <file>     Путь к выходному mJSON файлу
+                      По умолчанию: stdout
+  
+  --member <username> Фильтр по участнику (Trello username)
+  
+  --status <name>     Фильтр по статусу (частичное совпадение, регистронезависимо)
+  
+  --compact           Минимальный вывод (без description, checklists, 
+                      attachments, linkedCards, activity)
+  
+  --version           Показать версию
+  --help              Показать справку
+```
+
+**Примеры:**
+
+```bash
+# Все активные карточки
+mj.sh --output board.json
+
+# Карточки участника
+mj.sh --member slavaaq --output slava.json
+
+# Карточки в статусе (частичное совпадение)
+mj.sh --status "In Progress" --output in_progress.json
+mj.sh --status todo --output todo.json
+
+# Комбинация фильтров
+mj.sh --member petrovmichael1 --status "In Progress" --output petrov_ip.json
+
+# Компактный вывод для быстрого анализа
+mj.sh --compact --output board_compact.json
+```
 
 ---
 
 ## Формат mJSON
 
-Упрощённый плоский формат с минимумом вложенности.
-
-### Базовый формат (по умолчанию)
+### Полный формат (по умолчанию)
 
 ```json
 {
@@ -45,6 +88,60 @@ mj.sh - bash-скрипт для преобразования Trello JSON экс
   "name": "LV-6401 Mark photographs",
   "url": "https://trello.com/c/Dw8Y7j2C",
   "status": "Testing",
+  
+  "description": "Create a new directory in project root...",
+  
+  "checklists": [
+    {
+      "id": "checklist_id",
+      "name": "Notes",
+      "items": [
+        {
+          "id": "item_id",
+          "text": "Let's remove leading and trailing whitespace",
+          "checked": true
+        }
+      ]
+    }
+  ],
+  
+  "attachments": [
+    {
+      "id": "attach_id",
+      "name": "image.png",
+      "url": "https://trello.com/1/cards/.../attachments/.../download/image.png",
+      "addedAt": "2025-11-11T17:31:00Z",
+      "addedBy": "slavaaq"
+    }
+  ],
+  
+  "linkedCards": [
+    {
+      "id": "linked_card_id",
+      "name": "3229-kylesogoodteamcomreporting-pulling-non-existing-grids",
+      "url": "https://trello.com/c/TduZ664l/..."
+    }
+  ],
+  
+  "activity": [
+    {
+      "type": "updateCard",
+      "date": "2025-11-21T10:38:51.323Z",
+      "user": "slavaaq",
+      "data": {
+        "from": "To Final Verification",
+        "to": "Recently Released"
+      }
+    },
+    {
+      "type": "commentCard",
+      "date": "2025-11-24T19:25:37.041Z",
+      "user": "r_av66",
+      "data": {
+        "text": "it seems that posts feature has been fixed"
+      }
+    }
+  ],
   
   "assignees": ["slavaaq", "sergeykovalevsky"],
   "labels": ["In Test", "Incomplete"],
@@ -66,396 +163,171 @@ mj.sh - bash-скрипт для преобразования Trello JSON экс
 }
 ```
 
-**Поля:**
-- `id` - технический ID карточки
-- `name` - оригинальное название (как в Trello, без изменений)
-- `url` - shortUrl карточки
-- `status` - название списка (list.name)
-- `assignees` - массив username участников (Trello usernames)
-- `labels` - массив названий меток
-- `project` - значение customFields.Project (LV, WTRC, SRP, etc.)
-- `effort` - значение customFields.Effort ("small task", "a day", "few days", "a week", null)
-- `priority` - значение customFields.Priority ("High", "Medium", "Low", null)
-- `pr` - массив URL на GitHub PR (из attachments)
-- `created` - дата создания карточки (UTC)
-- `updated` - dateLastActivity (UTC)
-- `due` - дедлайн (UTC или null)
-- `archived` - closed статус (boolean)
-- `isMirror` - признак mirror-карточки (boolean)
-
-### Расширенный формат (--include-details)
-
-```json
-{
-  ...базовые поля...,
-  
-  "description": "Create a new directory in project root for form tracking widget.\n\nThe goal of the widget is to track form submits...\n\n## UPDATE: Deployment\n\nAccording to discussion...",
-  
-  "attachments": [
-    {
-      "id": "attach_id",
-      "name": "image.png",
-      "url": "...",
-      "addedAt": "2025-11-11T17:31:00Z",
-      "addedBy": "slavaaq"
-    }
-  ],
-  
-  "linkedCards": [
-    {
-      "id": "linked_card_id",
-      "name": "Customer Support",
-      "url": "https://trello.com/c/...",
-      "status": "Done 🎉"
-    }
-  ],
-  
-  "checklists": [
-    {
-      "id": "checklist_id",
-      "name": "Notes",
-      "items": [
-        {
-          "id": "item_id",
-          "text": "Let's remove leading and trailing whitespace",
-          "checked": true,
-          "completedAt": "2025-11-11T17:26:00Z",
-          "completedBy": "slavaaq"
-        }
-      ]
-    }
-  ]
-}
-```
-
-**Дополнительные поля:**
-- `description` - markdown описание карточки (сохраняется 1:1)
-- `attachments` - массив файлов с метаданными
-- `linkedCards` - массив связанных карточек со статусами
-- `checklists` - массив чек-листов с элементами
-
 ### Компактный формат (--compact)
 
-При использовании флага `--compact` исключаются:
-- `description`
-- `attachments`
-- `linkedCards`
-- `checklists`
-- `activity` (когда будет реализовано)
+При использовании `--compact` исключаются:
+- description
+- checklists
+- attachments
+- linkedCards
+- activity
 
-Остаются только критичные поля для быстрого анализа.
-
----
-
-## Архитектура mj.sh v0.1
-
-Единый bash скрипт с функциями, разделёнными по ответственности.
-
-### Текущая реализация (v0.1.0)
-
-```bash
-#!/bin/bash
-
-VERSION="0.1"
-
-# Поиск входного файла
-find_input_file() {
-    # Ищет *all-projects.json на Desktop
-    # Или использует --input параметр
-}
-
-# Основная обработка
-process_cards() {
-    # 1. Создаёт lookup tables (lists, members, labels, customFields)
-    # 2. Фильтрует незаархивированные карточки
-    # 3. Denormalization: ID → читаемые названия
-    # 4. Извлекает custom fields (Project, Effort, Priority)
-    # 5. Находит PR в attachments
-    # 6. Определяет mirror-карточки по префиксу [MIRROR]
-    # 7. Форматирует в mJSON
-}
-
-main() {
-    # Парсинг аргументов
-    # Вызов process_cards
-    # Вывод результата
-}
-```
-
-### Roadmap развития
-
-**v0.1.0** (готово) ✅
-- Базовая конвертация Trello JSON → mJSON
-- Извлечение custom fields (Project, Effort, Priority)
-- Поиск PR в attachments
-- Фильтрация архивных карточек
-- Определение mirror-карточек
-
-**v0.2.0** - Фильтрация
-- `--member <username>` - карточки участника
-- `--status <name>` - карточки в статусе
-- `--labels <names>` - карточки с метками
-- `--project <name>` - карточки проекта
-- `--compact` - минимальный вывод (без description, checklists, attachments)
-
-**v0.3.0** - Расширенные поля
-- `--include-details` - добавить description, checklists, attachments, linkedCards
-- `--include-archived --archived-days N` - включить архивные карточки
-
-**v0.4.0** - Activity
-- `--include-activity` - добавить единую ленту событий
-
-**v1.0.0** - Stable Release
-- Полный feature set
-- Comprehensive documentation
-- Migration guide from makejson.sh
+Остаются только критичные поля для быстрого анализа статусов и назначений.
 
 ---
 
-## API mj.sh
+## Описание полей
 
-### Текущая версия (v0.1.0)
+### Базовые поля
 
-```bash
-mj.sh [OPTIONS]
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | string | Технический ID карточки Trello |
+| name | string | Оригинальное название (как в Trello) |
+| url | string | shortUrl карточки |
+| status | string | Название списка (list.name) |
+| assignees | string[] | Массив Trello usernames участников |
+| labels | string[] | Массив названий меток |
+| project | string\|null | Custom field "Project" (LV, WTRC, SRP, etc.) |
+| effort | string\|null | Custom field "Effort" |
+| priority | string\|null | Custom field "Priority" |
+| pr | string[] | Массив URL на GitHub PR |
+| created | string | dateLastActivity (UTC ISO) |
+| updated | string | dateLastActivity (UTC ISO) |
+| due | string\|null | Дедлайн (UTC ISO или null) |
+| archived | boolean | Статус архивации |
+| isMirror | boolean | Признак mirror-карточки |
 
-OPTIONS:
-  --input <file>      Путь к Trello JSON файлу
-                      По умолчанию: ищет *all-projects.json на Desktop
-  
-  --output <file>     Путь к выходному mJSON файлу
-                      По умолчанию: stdout
-  
-  --version           Показать версию
-  --help              Показать справку
-```
+### Расширенные поля (исключаются в --compact)
 
-**Примеры:**
-
-```bash
-# Автоматический поиск *all-projects.json на Desktop
-mj.sh --output board_overview.json
-
-# Использование конкретного файла
-mj.sh --input ~/Downloads/board.json --output result.json
-
-# Вывод в stdout
-mj.sh
-```
-
-### Планируемые опции (v0.2+)
-
-```bash
-# Фильтрация
---member <username>           Карточки участника
---status <name>               Карточки в статусе
---labels <names>              Карточки с метками (через запятую)
---project <name>              Карточки проекта
-
-# Детализация
---include-details             Добавить description, checklists, attachments, linkedCards
---include-activity            Добавить ленту событий
---compact                     Минимальный вывод (только критичные поля)
-
-# Архивные
---include-archived            Включить архивные карточки
---archived-days N             Архивные за последние N дней
-```
+| Поле | Тип | Описание |
+|------|-----|----------|
+| description | string | Markdown описание карточки |
+| checklists | array | Чеклисты с items |
+| attachments | array | Файлы с метаданными (без PR и linkedCards) |
+| linkedCards | array | Ссылки на другие карточки Trello |
+| activity | array | Лента событий (отсортировано по дате, новые первые) |
 
 ---
 
-## Типовые задачи ПМ
+## Activity Types
 
-### Утренняя рутина
+Поддерживаемые типы событий в поле `activity`:
 
-```bash
-# Обзор доски (все активные карточки)
-mj.sh --output ~/Desktop/pm-reports/board_overview_$(date +%Y%m%d).json
+| Тип | data | Описание |
+|-----|------|----------|
+| commentCard | {text} | Комментарий |
+| updateCard | {from, to} | Смена статуса |
+| updateCheckItemStateOnCard | {checkItem, state} | Изменение пункта чеклиста |
+| addMemberToCard | {member} | Добавление участника |
+| removeMemberFromCard | {member} | Удаление участника |
+| addAttachmentToCard | {attachment} | Добавление вложения |
+| deleteAttachmentFromCard | {attachment} | Удаление вложения |
+| addChecklistToCard | {checklist} | Добавление чеклиста |
+| updateCustomFieldItem | {field} | Изменение custom field |
+| moveCardFromBoard | {fromList} | Перемещение с другой доски |
+| createCard | {list} | Создание карточки |
 
-# Статистика по проектам и статусам
-jq -r 'group_by(.project) | map({project: .[0].project, count: length})' \
-  board_overview_$(date +%Y%m%d).json
-```
-
-### Анализ по участникам (v0.2+)
-
-```bash
-# Задачи конкретного участника
-mj.sh --member slavaaq --output slava_$(date +%Y%m%d).json
-
-# Задачи в Testing
-mj.sh --status Testing --output testing_$(date +%Y%m%d).json
-
-# Неназначенные задачи
-mj.sh --unassigned --output unassigned_$(date +%Y%m%d).json
-```
-
-### Анализ дельты
-
-```bash
-# Сегодняшний snapshot
-mj.sh --output board_$(date +%Y%m%d).json
-
-# Сравнение с вчерашним
-jq --slurpfile old board_20251124.json '
-  . as $new |
-  $old[0] as $old_cards |
-  [.[] | . as $card |
-    ($old_cards[] | select(.id == $card.id)) as $old_card |
-    select($old_card.status != $card.status) |
-    {
-      name: .name,
-      was: $old_card.status,
-      now: .status
-    }
-  ]
-' board_20251125.json
-```
+События `updateCard` без смены статуса (только изменение позиции) отфильтровываются.
 
 ---
 
 ## Технические детали
 
-### Custom Fields Extraction
+### Mirror Card Detection
 
-Trello хранит custom fields как связь через IDs:
-```json
-{
-  "customFieldItems": [
-    {
-      "idCustomField": "62836ba8aeb8ea3345cbbb9b",
-      "idValue": "628e477ba73d2e5eab85a389"
-    }
-  ]
-}
+Mirror-карточки определяются по полю `cardRole`:
+```javascript
+card.cardRole === "mirror"
 ```
 
-mj.sh делает двойной lookup:
+**Важно:** У mirror-карточек `idMembers` пустой, поэтому фильтр `--member` их не найдёт.
+
+### Custom Fields Extraction
+
+Trello хранит custom fields как связь через IDs. mj.sh делает двойной lookup:
 1. Найти customField по `idCustomField` → получить тип и options
 2. Для list-типа: найти option по `idValue` → получить `.value.text`
 
-Результат: `"project": "SRP"`
-
-### Mirror Card Detection
-
-Mirror-карточки определяются по префиксу в названии:
-- `^[MIRROR]` - старый формат
-- `^MIRROR:` - новый формат
-
-Поле `isMirror` устанавливается в `true` для таких карточек.
-
 ### PR Extraction
 
-PR извлекаются из attachments:
-```json
-{
-  "attachments": [
-    {
-      "url": "https://github.com/trafficrunners/gmbmanager/pull/5235"
-    }
-  ]
-}
+PR извлекаются из attachments по фильтру:
+```
+url contains "github.com" AND contains "/pull/"
 ```
 
-Фильтр: `url contains "github.com" and contains "/pull/"`
+### Attachments Separation
+
+Attachments разделяются на три категории:
+- **pr** — GitHub PR ссылки (в отдельное поле)
+- **linkedCards** — Trello card ссылки (в отдельное поле)
+- **attachments** — остальные файлы
+
+---
+
+## Ограничения
+
+### Trello JSON Export
+
+- Экспорт включает только **последние 1000 actions** для всей доски
+- Для карточек с длинной историей activity будет неполным
+- PDF карточки Trello содержит полную историю
+
+### Mirror Cards
+
+- Mirror-карточки не содержат assignees
+- Для полного resolve mirrors требуется загрузка source досок
 
 ---
 
 ## Зависимости
 
 **Обязательные:**
-- `bash` 4.0+
-- `jq` - JSON processor (brew install jq)
+- bash 4.0+
+- jq (JSON processor)
 
-**Опциональные (для будущих версий):**
-- `curl` - для GitHub enrichment
-- `git` - для git diff анализа
+**Установка jq:**
+```bash
+# macOS
+brew install jq
 
----
-
-## Нерешённые вопросы
-
-### Автоинкремент
-
-Пока не трогаем. Какое `name` есть в Trello, такое выводим в mJSON. Разберёмся позже с:
-- Извлечением номера из name
-- Проблемой сломанного автоинкремента
-- Кастомным полем с LV-XXXX
-
-### Activity format
-
-Нужно определить:
-- Типы событий для включения
-- Формат представления каждого типа
-- Сортировку и группировку
-
-### Resolve mirrors
-
-Для полного resolve mirrors потребуется:
-- Загрузка дополнительных JSON досок
-- Поиск source карточки по shortUrl
-- Копирование данных из source в mirror
-
-### GitHub enrichment
-
-Детали для будущих версий:
-- Формат поля `reviews`
-- Формат поля `ci`
-- Обработка git diff
-
----
-
-## Обратная совместимость
-
-**С makejson.sh:**
-- mj.sh использует другую архитектуру (JSON exports вместо multiple JSON files)
-- Формат вывода несовместим (новый формат mJSON vs старый mJSON v3.x)
-- Миграция: использовать оба скрипта параллельно, затем переключиться
-
-**Между версиями mj.sh:**
-- Базовый формат (v0.1) останется совместимым
-- Новые поля добавляются опционально (через флаги)
-- Breaking changes только в major версиях (v1.0 → v2.0)
+# Ubuntu/Debian
+apt install jq
+```
 
 ---
 
 ## Changelog
 
-### v0.1.0 (2024-11-25)
+См. полный [CHANGELOG.md](https://github.com/olga-demchuk/mj/blob/main/CHANGELOG.md)
 
-**Added:**
+### v0.4.2 (2025-11-26)
+- Добавлены activity types: updateCustomFieldItem, moveCardFromBoard
+
+### v0.4.1 (2025-11-26)
+- Добавлен activity type: deleteAttachmentFromCard
+
+### v0.4.0 (2025-11-26)
+- Добавлено поле activity с unified timeline (11 типов событий)
+
+### v0.3.3 (2025-11-26)
+- Добавлено поле linkedCards
+
+### v0.3.2 (2025-11-26)
+- Добавлено поле attachments с метаданными
+
+### v0.3.1 (2025-11-26)
+- Добавлено поле checklists
+
+### v0.3.0 (2025-11-26)
+- Добавлен флаг --status
+
+### v0.2.1 (2025-11-26)
+- Исправлено определение mirror cards (cardRole вместо name prefix)
+
+### v0.2.0 (2025-11-26)
+- Добавлены флаги --compact, --member
+- Добавлено поле description
+
+### v0.1.0 (2025-11-26)
 - Initial release
-- Basic conversion Trello JSON → mJSON
-- Custom fields extraction (Project, Effort, Priority)
-- GitHub PR link detection in attachments
-- Archived cards filtering
-- Mirror card detection by name prefix
-- Command-line options: `--input`, `--output`, `--version`, `--help`
-- Automatic search for `*all-projects.json` on Desktop
-
-**Features:**
-- Converts 30+ MB Trello exports to ~100 KB mJSON
-- Supports custom field types: list, text, number, date, checkbox
-- Extracts assignees, labels, status, dates
-- Single bash script with jq dependency
-
----
-
-## GitHub Repository
-
-**Repository:** https://github.com/olga-demchuk/mj  
-**Release:** v0.1.0  
-**License:** MIT
-
-**Installation:**
-```bash
-curl -o mj.sh https://raw.githubusercontent.com/olga-demchuk/mj/main/mj.sh
-chmod +x mj.sh
-sudo mv mj.sh /usr/local/bin/mj.sh
-```
-
-**Verification:**
-```bash
-mj.sh --version
-# Output: mj.sh v0.1
-```
