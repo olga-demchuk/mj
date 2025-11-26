@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-VERSION="0.4.2"
+VERSION="0.5.0"
 DESKTOP_PATH="$HOME/Desktop"
 
 # Цвета для вывода
@@ -57,13 +57,15 @@ convert_to_mjson() {
     local compact_mode="$3"
     local member_filter="$4"
     local status_filter="$5"
+    local critical_mode="$6"
+    local unassigned_mode="$7"
     
     # Создаём временный файл для промежуточного результата
     local temp_file
     temp_file=$(mktemp)
     
     # jq фильтр для преобразования
-    jq -r --arg compact "$compact_mode" --arg member "$member_filter" --arg status_filter "$status_filter" '
+    jq -r --arg compact "$compact_mode" --arg member "$member_filter" --arg status_filter "$status_filter" --arg critical "$critical_mode" --arg unassigned "$unassigned_mode" '
     # Создаём lookup tables для быстрого доступа
     . as $root |
     
@@ -94,14 +96,23 @@ convert_to_mjson() {
         # Фильтруем по status если указан
         select(if $status_filter != "" then ($status | ascii_downcase | contains($status_filter | ascii_downcase)) else true end) |
         
+        # Получаем названия меток (нужно для фильтра critical)
+        ([$card.idLabels[] | $labels_map[.] // empty]) as $label_names |
+        
+        # Фильтруем по critical (определённые статусы ИЛИ лейбл Priority)
+        select(if $critical == "true" then (
+            ($status | test("To Do HP|To Fix|Testing|To Deploy|To Final Verification"; "i")) or
+            ($label_names | any(. == "Priority"))
+        ) else true end) |
+        
         # Получаем usernames участников
         ([$card.idMembers[] | $members_map[.] // empty]) as $assignees |
         
+        # Фильтруем по unassigned (пустые assignees)
+        select(if $unassigned == "true" then ($assignees | length == 0) else true end) |
+        
         # Фильтруем по member если указан
         select(if $member != "" then ($assignees | contains([$member])) else true end) |
-        
-        # Получаем названия меток
-        ([$card.idLabels[] | $labels_map[.] // empty]) as $label_names |
         
         # Извлекаем значения кастомных полей (правильный способ для list-типа)
         (
@@ -250,7 +261,9 @@ Options:
     --input <file>      Use specific JSON file (default: find *all-projects.json on Desktop)
     --member <username> Filter cards by team member (Trello username)
     --status <name>     Filter cards by status (case-insensitive, partial match)
-    --compact           Minimal output (exclude description)
+    --critical          Filter critical tasks (statuses: To Do HP, To Fix, Testing, To Deploy, To Final Verification; OR label: Priority)
+    --unassigned        Filter cards without assignees
+    --compact           Minimal output (exclude description, checklists, attachments, linkedCards, activity)
     --version           Show version
     --help              Show this help
 
@@ -266,11 +279,16 @@ Examples:
 
     # Filter by status
     mj.sh --status "In Progress" --output in_progress.json
-    mj.sh --status review --output review_tasks.json
+
+    # Critical tasks (specific statuses OR Priority label)
+    mj.sh --critical --output critical.json
+
+    # Unassigned tasks
+    mj.sh --unassigned --output unassigned.json
 
     # Combine filters
     mj.sh --member slavaaq --status "In Progress" --output slava_in_progress.json
-    mj.sh --member slavaaq --compact --output slava_compact.json
+    mj.sh --critical --compact --output critical_compact.json
 
     # Use specific input file
     mj.sh --input ~/Downloads/backup.json --output result.json
@@ -284,6 +302,8 @@ OUTPUT_FILE=""
 COMPACT_MODE=false
 MEMBER_FILTER=""
 STATUS_FILTER=""
+CRITICAL_MODE=false
+UNASSIGNED_MODE=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -306,6 +326,14 @@ while [[ $# -gt 0 ]]; do
         --status)
             STATUS_FILTER="$2"
             shift 2
+            ;;
+        --critical)
+            CRITICAL_MODE=true
+            shift
+            ;;
+        --unassigned)
+            UNASSIGNED_MODE=true
+            shift
             ;;
         --version)
             echo "mj.sh v${VERSION}"
@@ -337,7 +365,7 @@ main() {
     fi
     
     # Конвертируем
-    convert_to_mjson "$INPUT_FILE" "$OUTPUT_FILE" "$COMPACT_MODE" "$MEMBER_FILTER" "$STATUS_FILTER"
+    convert_to_mjson "$INPUT_FILE" "$OUTPUT_FILE" "$COMPACT_MODE" "$MEMBER_FILTER" "$STATUS_FILTER" "$CRITICAL_MODE" "$UNASSIGNED_MODE"
 }
 
 main

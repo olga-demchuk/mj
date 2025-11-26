@@ -102,3 +102,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Added
 - `updateCustomFieldItem` activity type (shows field name: Project, Effort, Priority)
 - `moveCardFromBoard` activity type (shows source list name)
+
+## [0.5.0] - 2025-11-26
+
+### Added
+- `--critical` filter (statuses: To Do HP, To Fix, Testing, To Deploy, To Final Verification; OR label: Priority)
+- `--unassigned` filter (cards without assignees)
