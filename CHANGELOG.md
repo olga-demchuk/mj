@@ -108,3 +108,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Added
 - `--critical` filter (statuses: To Do HP, To Fix, Testing, To Deploy, To Final Verification; OR label: Priority)
 - `--unassigned` filter (cards without assignees)
+
+### Changed
+- `--search` now uses AND-logic for multiple words ("company cam" finds "CompanyCam")

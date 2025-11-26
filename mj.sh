@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-VERSION="0.5.0"
+VERSION="0.5.1"
 DESKTOP_PATH="$HOME/Desktop"
 
 # Цвета для вывода
@@ -59,13 +59,14 @@ convert_to_mjson() {
     local status_filter="$5"
     local critical_mode="$6"
     local unassigned_mode="$7"
+    local search_keyword="$8"
     
     # Создаём временный файл для промежуточного результата
     local temp_file
     temp_file=$(mktemp)
     
     # jq фильтр для преобразования
-    jq -r --arg compact "$compact_mode" --arg member "$member_filter" --arg status_filter "$status_filter" --arg critical "$critical_mode" --arg unassigned "$unassigned_mode" '
+    jq -r --arg compact "$compact_mode" --arg member "$member_filter" --arg status_filter "$status_filter" --arg critical "$critical_mode" --arg unassigned "$unassigned_mode" --arg search "$search_keyword" '
     # Создаём lookup tables для быстрого доступа
     . as $root |
     
@@ -95,6 +96,13 @@ convert_to_mjson() {
         
         # Фильтруем по status если указан
         select(if $status_filter != "" then ($status | ascii_downcase | contains($status_filter | ascii_downcase)) else true end) |
+        
+        # Фильтруем по search keyword (в name и description, case-insensitive)
+        # Если несколько слов через пробел — все должны присутствовать (AND-логика)
+        select(if $search != "" then (
+            ($card.name + " " + $card.desc | ascii_downcase) as $text |
+            ($search | ascii_downcase | split(" ") | all(. as $word | $text | contains($word)))
+        ) else true end) |
         
         # Получаем названия меток (нужно для фильтра critical)
         ([$card.idLabels[] | $labels_map[.] // empty]) as $label_names |
@@ -263,6 +271,7 @@ Options:
     --status <name>     Filter cards by status (case-insensitive, partial match)
     --critical          Filter critical tasks (statuses: To Do HP, To Fix, Testing, To Deploy, To Final Verification; OR label: Priority)
     --unassigned        Filter cards without assignees
+    --search <keyword>  Search cards by keyword in name and description (case-insensitive, multiple words = AND)
     --compact           Minimal output (exclude description, checklists, attachments, linkedCards, activity)
     --version           Show version
     --help              Show this help
@@ -286,6 +295,11 @@ Examples:
     # Unassigned tasks
     mj.sh --unassigned --output unassigned.json
 
+    # Search by keyword (in name and description)
+    mj.sh --search CompanyCam --output companycam.json
+    mj.sh --search Jensen --output jensen.json
+    mj.sh --search "form tracking" --output formtracking.json
+
     # Combine filters
     mj.sh --member slavaaq --status "In Progress" --output slava_in_progress.json
     mj.sh --critical --compact --output critical_compact.json
@@ -304,6 +318,7 @@ MEMBER_FILTER=""
 STATUS_FILTER=""
 CRITICAL_MODE=false
 UNASSIGNED_MODE=false
+SEARCH_KEYWORD=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -335,6 +350,10 @@ while [[ $# -gt 0 ]]; do
             UNASSIGNED_MODE=true
             shift
             ;;
+        --search)
+            SEARCH_KEYWORD="$2"
+            shift 2
+            ;;
         --version)
             echo "mj.sh v${VERSION}"
             exit 0
@@ -365,7 +384,7 @@ main() {
     fi
     
     # Конвертируем
-    convert_to_mjson "$INPUT_FILE" "$OUTPUT_FILE" "$COMPACT_MODE" "$MEMBER_FILTER" "$STATUS_FILTER" "$CRITICAL_MODE" "$UNASSIGNED_MODE"
+    convert_to_mjson "$INPUT_FILE" "$OUTPUT_FILE" "$COMPACT_MODE" "$MEMBER_FILTER" "$STATUS_FILTER" "$CRITICAL_MODE" "$UNASSIGNED_MODE" "$SEARCH_KEYWORD"
 }
 
 main
