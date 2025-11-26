@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # mj.sh - Trello JSON to mJSON converter
-# Version: 0.3.2
+# Version: 0.3.3
 # Date: 2025-11-26
 
 set -euo pipefail
 
-VERSION="0.3.2"
+VERSION="0.3.3"
 DESKTOP_PATH="$HOME/Desktop"
 
 # Цвета для вывода
@@ -134,8 +134,19 @@ convert_to_mjson() {
         # Извлекаем PR из attachments
         ([$card.attachments[]? | select(.url | contains("github.com") and contains("/pull/")) | .url]) as $pr_urls |
         
-        # Извлекаем attachments (исключая PR)
-        ([$card.attachments[]? | select(.url | (contains("github.com") and contains("/pull/")) | not) | {
+        # Извлекаем linkedCards (ссылки на другие карточки Trello)
+        ([$card.attachments[]? | select(.url | contains("trello.com/c/")) | {
+            id: .id,
+            name: .fileName,
+            url: .url
+        }]) as $linked_cards |
+        
+        # Извлекаем attachments (исключая PR и linkedCards)
+        ([$card.attachments[]? | select(
+            (.url | contains("github.com") and contains("/pull/")) | not
+        ) | select(
+            (.url | contains("trello.com/c/")) | not
+        ) | {
             id: .id,
             name: .name,
             url: .url,
@@ -170,6 +181,8 @@ convert_to_mjson() {
         (if $compact == "false" then {checklists: $card_checklists} else {} end) +
         # attachments - только если не compact mode
         (if $compact == "false" then {attachments: $card_attachments} else {} end) +
+        # linkedCards - только если не compact mode
+        (if $compact == "false" then {linkedCards: $linked_cards} else {} end) +
         {
             assignees: $assignees,
             labels: $label_names,
