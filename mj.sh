@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # mj.sh - Trello JSON to mJSON converter
-# Version: 0.3.0
+# Version: 0.3.1
 # Date: 2025-11-26
 
 set -euo pipefail
 
-VERSION="0.3.0"
+VERSION="0.3.1"
 DESKTOP_PATH="$HOME/Desktop"
 
 # Цвета для вывода
@@ -76,6 +76,9 @@ convert_to_mjson() {
     # Labels lookup: id -> name
     ($root.labels | map({(.id): .name}) | add) as $labels_map |
     
+    # Checklists lookup: idCard -> array of checklists
+    ($root.checklists | group_by(.idCard) | map({(.[0].idCard): .}) | add // {}) as $checklists_map |
+    
     # Обрабатываем карточки
     $root.cards |
     map(
@@ -134,6 +137,17 @@ convert_to_mjson() {
         # Проверяем, является ли карточка mirror (по полю cardRole)
         ($card.cardRole == "mirror") as $is_mirror |
         
+        # Извлекаем чеклисты для карточки
+        (($checklists_map[$card.id] // []) | map({
+            id: .id,
+            name: .name,
+            items: [.checkItems[] | {
+                id: .id,
+                text: .name,
+                checked: (.state == "complete")
+            }]
+        })) as $card_checklists |
+        
         # Формируем результат
         {
             id: $card.id,
@@ -143,6 +157,8 @@ convert_to_mjson() {
         } +
         # description - только если не compact mode
         (if $compact == "false" then {description: $card.desc} else {} end) +
+        # checklists - только если не compact mode
+        (if $compact == "false" then {checklists: $card_checklists} else {} end) +
         {
             assignees: $assignees,
             labels: $label_names,
