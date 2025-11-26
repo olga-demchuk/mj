@@ -96,3 +96,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 - `deleteAttachmentFromCard` activity type with attachment name
+
+## [0.4.2] - 2025-11-26
+
+### Added
+- `updateCustomFieldItem` activity type (shows field name: Project, Effort, Priority)
+- `moveCardFromBoard` activity type (shows source list name)
