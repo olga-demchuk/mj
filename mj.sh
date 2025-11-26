@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # mj.sh - Trello JSON to mJSON converter
-# Version: 0.2.0
-# Date: 2024-11-25
+# Version: 0.2.1
+# Date: 2024-11-26
 
 set -euo pipefail
 
-VERSION="0.2.0"
+VERSION="0.2.1"
 DESKTOP_PATH="$HOME/Desktop"
 
 # Цвета для вывода
@@ -127,8 +127,8 @@ convert_to_mjson() {
         # Извлекаем PR из attachments
         ([$card.attachments[]? | select(.url | contains("github.com") and contains("/pull/")) | .url]) as $pr_urls |
         
-        # Проверяем, является ли карточка mirror
-        ($card.name | test("^\\[MIRROR\\]|^MIRROR:")) as $is_mirror |
+        # Проверяем, является ли карточка mirror (по полю cardRole)
+        ($card.cardRole == "mirror") as $is_mirror |
         
         # Формируем результат
         {

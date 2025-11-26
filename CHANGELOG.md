@@ -53,3 +53,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 - Updated help message with new options and examples
+
+## [0.2.1] - 2025-11-26
+
+### Fixed
+- Mirror card detection now uses `cardRole == "mirror"` instead of name prefix
