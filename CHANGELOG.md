@@ -68,3 +68,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 - `checklists` field with items (excluded in --compact mode)
+
+## [0.3.2] - 2025-11-26
+
+### Added
+- `attachments` field with metadata (excluded in --compact mode)
+- Attachments include: id, name, url, addedAt, addedBy (username)
+- GitHub PRs excluded from attachments (already in `pr` field)

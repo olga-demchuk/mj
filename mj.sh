@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # mj.sh - Trello JSON to mJSON converter
-# Version: 0.3.1
+# Version: 0.3.2
 # Date: 2025-11-26
 
 set -euo pipefail
 
-VERSION="0.3.1"
+VERSION="0.3.2"
 DESKTOP_PATH="$HOME/Desktop"
 
 # Цвета для вывода
@@ -134,6 +134,15 @@ convert_to_mjson() {
         # Извлекаем PR из attachments
         ([$card.attachments[]? | select(.url | contains("github.com") and contains("/pull/")) | .url]) as $pr_urls |
         
+        # Извлекаем attachments (исключая PR)
+        ([$card.attachments[]? | select(.url | (contains("github.com") and contains("/pull/")) | not) | {
+            id: .id,
+            name: .name,
+            url: .url,
+            addedAt: .date,
+            addedBy: ($members_map[.idMember] // null)
+        }]) as $card_attachments |
+        
         # Проверяем, является ли карточка mirror (по полю cardRole)
         ($card.cardRole == "mirror") as $is_mirror |
         
@@ -159,6 +168,8 @@ convert_to_mjson() {
         (if $compact == "false" then {description: $card.desc} else {} end) +
         # checklists - только если не compact mode
         (if $compact == "false" then {checklists: $card_checklists} else {} end) +
+        # attachments - только если не compact mode
+        (if $compact == "false" then {attachments: $card_attachments} else {} end) +
         {
             assignees: $assignees,
             labels: $label_names,
