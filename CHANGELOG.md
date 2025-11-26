@@ -83,3 +83,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 - Trello card links now separated from attachments
+
+## [0.4.0] - 2025-11-26
+
+### Added
+- `activity` field with unified timeline (excluded in --compact mode)
+- Activity types: commentCard, updateCard (status changes), updateCheckItemStateOnCard, addMemberToCard, removeMemberFromCard, addAttachmentToCard, addChecklistToCard, createCard
+- Position-only updateCard events filtered out
+- Activities sorted by date (newest first)

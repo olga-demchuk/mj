@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # mj.sh - Trello JSON to mJSON converter
-# Version: 0.3.3
+# Version: 0.4.0
 # Date: 2025-11-26
 
 set -euo pipefail
 
-VERSION="0.3.3"
+VERSION="0.4.0"
 DESKTOP_PATH="$HOME/Desktop"
 
 # Цвета для вывода
@@ -78,6 +78,9 @@ convert_to_mjson() {
     
     # Checklists lookup: idCard -> array of checklists
     ($root.checklists | group_by(.idCard) | map({(.[0].idCard): .}) | add // {}) as $checklists_map |
+    
+    # Actions lookup: card.id -> array of actions
+    ([$root.actions[] | select(.data.card.id != null)] | group_by(.data.card.id) | map({(.[0].data.card.id): .}) | add // {}) as $actions_map |
     
     # Обрабатываем карточки
     $root.cards |
@@ -168,6 +171,26 @@ convert_to_mjson() {
             }]
         })) as $card_checklists |
         
+        # Извлекаем activity для карточки
+        (($actions_map[$card.id] // []) | map({
+            type: .type,
+            date: .date,
+            user: .memberCreator.username,
+            data: (
+                if .type == "commentCard" then {text: .data.text}
+                elif .type == "updateCard" and .data.listBefore then {from: .data.listBefore.name, to: .data.listAfter.name}
+                elif .type == "updateCheckItemStateOnCard" then {checkItem: .data.checkItem.name, state: .data.checkItem.state}
+                elif .type == "addMemberToCard" then {member: ((.data.member.username // .data.member.name) // null)}
+                elif .type == "removeMemberFromCard" then {member: ((.data.member.username // .data.member.name) // null)}
+                elif .type == "addAttachmentToCard" then {attachment: .data.attachment.name}
+                elif .type == "addChecklistToCard" then {checklist: .data.checklist.name}
+                elif .type == "createCard" then {list: .data.list.name}
+                elif .type == "updateCard" then null  # Skip position-only updates
+                else {}
+                end
+            )
+        }) | map(select(.data != null)) | sort_by(.date) | reverse) as $card_activity |
+        
         # Формируем результат
         {
             id: $card.id,
@@ -183,6 +206,8 @@ convert_to_mjson() {
         (if $compact == "false" then {attachments: $card_attachments} else {} end) +
         # linkedCards - только если не compact mode
         (if $compact == "false" then {linkedCards: $linked_cards} else {} end) +
+        # activity - только если не compact mode
+        (if $compact == "false" then {activity: $card_activity} else {} end) +
         {
             assignees: $assignees,
             labels: $label_names,
