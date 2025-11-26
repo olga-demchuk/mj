@@ -58,3 +58,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Fixed
 - Mirror card detection now uses `cardRole == "mirror"` instead of name prefix
+
+## [0.3.0] - 2025-11-26
+
+### Added
+- `--status <name>` flag to filter cards by status (case-insensitive, partial match)

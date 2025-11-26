@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # mj.sh - Trello JSON to mJSON converter
-# Version: 0.2.1
-# Date: 2024-11-26
+# Version: 0.3.0
+# Date: 2025-11-26
 
 set -euo pipefail
 
-VERSION="0.2.1"
+VERSION="0.3.0"
 DESKTOP_PATH="$HOME/Desktop"
 
 # Цвета для вывода
@@ -56,13 +56,14 @@ convert_to_mjson() {
     local output_file="${2:-}"
     local compact_mode="$3"
     local member_filter="$4"
+    local status_filter="$5"
     
     # Создаём временный файл для промежуточного результата
     local temp_file
     temp_file=$(mktemp)
     
     # jq фильтр для преобразования
-    jq -r --arg compact "$compact_mode" --arg member "$member_filter" '
+    jq -r --arg compact "$compact_mode" --arg member "$member_filter" --arg status_filter "$status_filter" '
     # Создаём lookup tables для быстрого доступа
     . as $root |
     
@@ -83,6 +84,9 @@ convert_to_mjson() {
         
         # Получаем имя списка
         ($lists_map[$card.idList] // "Unknown") as $status |
+        
+        # Фильтруем по status если указан
+        select(if $status_filter != "" then ($status | ascii_downcase | contains($status_filter | ascii_downcase)) else true end) |
         
         # Получаем usernames участников
         ([$card.idMembers[] | $members_map[.] // empty]) as $assignees |
@@ -177,6 +181,7 @@ Options:
     --output <file>     Save output to file (default: stdout)
     --input <file>      Use specific JSON file (default: find *all-projects.json on Desktop)
     --member <username> Filter cards by team member (Trello username)
+    --status <name>     Filter cards by status (case-insensitive, partial match)
     --compact           Minimal output (exclude description)
     --version           Show version
     --help              Show this help
@@ -186,15 +191,17 @@ Examples:
     mj.sh
 
     # Save to file
-    mj.sh --output board_overview_20241125.json
+    mj.sh --output board_overview.json
 
     # Filter by member
     mj.sh --member slavaaq --output slava_tasks.json
 
-    # Compact mode (without description)
-    mj.sh --compact --output quick_overview.json
+    # Filter by status
+    mj.sh --status "In Progress" --output in_progress.json
+    mj.sh --status review --output review_tasks.json
 
     # Combine filters
+    mj.sh --member slavaaq --status "In Progress" --output slava_in_progress.json
     mj.sh --member slavaaq --compact --output slava_compact.json
 
     # Use specific input file
@@ -208,6 +215,7 @@ INPUT_FILE=""
 OUTPUT_FILE=""
 COMPACT_MODE=false
 MEMBER_FILTER=""
+STATUS_FILTER=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -225,6 +233,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --member)
             MEMBER_FILTER="$2"
+            shift 2
+            ;;
+        --status)
+            STATUS_FILTER="$2"
             shift 2
             ;;
         --version)
@@ -257,7 +269,7 @@ main() {
     fi
     
     # Конвертируем
-    convert_to_mjson "$INPUT_FILE" "$OUTPUT_FILE" "$COMPACT_MODE" "$MEMBER_FILTER"
+    convert_to_mjson "$INPUT_FILE" "$OUTPUT_FILE" "$COMPACT_MODE" "$MEMBER_FILTER" "$STATUS_FILTER"
 }
 
 main
