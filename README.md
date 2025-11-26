@@ -7,195 +7,164 @@ Lightweight Trello JSON to mJSON converter for team workflows.
 `mj.sh` converts large Trello board exports (30+ MB) into compact, analyzable mJSON format (~100 KB). Built for Httplab's product management workflows.
 
 **Key features:**
+- 300x compression (34MB → 106KB, or 600x with --compact)
+- Filter by team member, status
 - Extracts custom fields (Project, Effort, Priority)
-- Finds GitHub PR links in attachments
-- Filters archived cards automatically
-- Human-readable JSON output
-- Single bash script, no dependencies except `jq`
+- Extracts GitHub PR links, attachments, linked cards
+- Unified activity timeline (comments, status changes, etc.)
+- Single bash script, only requires `jq`
 
 ## Quick Start
 
 ```bash
 # Install
-curl -o mj.sh https://raw.githubusercontent.com/YOUR_USERNAME/mj/main/mj.sh
+curl -o mj.sh https://raw.githubusercontent.com/olga-demchuk/mj/main/mj.sh
 chmod +x mj.sh
-sudo mv mj.sh /usr/local/bin/mj.sh
+mv mj.sh /usr/local/bin/mj.sh
 
 # Verify
-mj.sh --version
+mj.sh --version  # v0.4.2
 
 # Use
-mj.sh --output board_overview_$(date +%Y%m%d).json
+mj.sh --output board.json
 ```
 
 ## Requirements
 
 - macOS or Linux
 - bash 4.0+
-- jq (install: `brew install jq`)
+- jq (`brew install jq` or `apt install jq`)
 
 ## Usage
 
-### Basic usage
-
 ```bash
-# Convert all-projects.json from Desktop
-mj.sh --output board_overview.json
+# All active cards
+mj.sh --output board.json
 
-# Use specific input file
+# Filter by team member
+mj.sh --member slavaaq --output slava.json
+
+# Filter by status (partial match, case-insensitive)
+mj.sh --status "In Progress" --output in_progress.json
+mj.sh --status todo --output todo.json
+
+# Combine filters
+mj.sh --member petrovmichael1 --status "In Progress"
+
+# Compact output (faster analysis, smaller files)
+mj.sh --compact --output board_compact.json
+
+# Specific input file
 mj.sh --input ~/Downloads/board.json --output result.json
-
-# Output to stdout
-mj.sh
 ```
 
 ### Export Trello board
 
 1. Open your Trello board
 2. Board menu → Print and Export → Export as JSON
-3. Save to Desktop as `1yVt3bQ7 - all-projects.json`
+3. Save to Desktop
 4. Run `mj.sh`
 
 ## Output Format
 
-### Basic format (default)
+### Full format (default)
 
 ```json
-[
-  {
-    "id": "67053c24b2e398461bb5e3fc",
-    "name": "LV-6401 Mark photographs",
-    "url": "https://trello.com/c/Dw8Y7j2C",
-    "status": "Testing",
-    
-    "assignees": ["slavaaq", "sergeykovalevsky"],
-    "labels": ["In Test", "Incomplete"],
-    
-    "project": "LV",
-    "effort": "a day",
-    "priority": "High",
-    
-    "pr": ["https://github.com/trafficrunners/gmbmanager/pull/5243"],
-    
-    "created": "2024-10-08T10:23:45.120Z",
-    "updated": "2024-11-25T09:15:33.840Z",
-    "due": null,
-    
-    "archived": false,
-    "isMirror": false
-  }
-]
+{
+  "id": "67053c24b2e398461bb5e3fc",
+  "name": "LV-6401 Mark photographs",
+  "url": "https://trello.com/c/Dw8Y7j2C",
+  "status": "Testing",
+  
+  "description": "Full markdown description...",
+  
+  "checklists": [
+    {
+      "name": "Notes",
+      "items": [{"text": "Fix bug", "checked": true}]
+    }
+  ],
+  
+  "attachments": [
+    {"name": "image.png", "url": "...", "addedBy": "slavaaq"}
+  ],
+  
+  "linkedCards": [
+    {"name": "Related task", "url": "https://trello.com/c/..."}
+  ],
+  
+  "activity": [
+    {"type": "updateCard", "user": "slavaaq", "data": {"from": "ToDo", "to": "In Progress"}},
+    {"type": "commentCard", "user": "mike", "data": {"text": "Looks good!"}}
+  ],
+  
+  "assignees": ["slavaaq", "sergeykovalevsky"],
+  "labels": ["In Test"],
+  "project": "LV",
+  "effort": "a day",
+  "priority": "High",
+  "pr": ["https://github.com/trafficrunners/gmbmanager/pull/5243"],
+  
+  "created": "2024-10-08T10:23:45.120Z",
+  "updated": "2024-11-25T09:15:33.840Z",
+  "due": null,
+  "archived": false,
+  "isMirror": false
+}
 ```
 
-### Extended format (--include-details, v0.3+)
+### Compact format (--compact)
 
-Future versions will support extended format with:
-- `description` - Full markdown description
-- `attachments` - Array of files with metadata
-- `linkedCards` - Array of linked cards with statuses
-- `checklists` - Array of checklists with items and completion data
+Excludes: description, checklists, attachments, linkedCards, activity.
+Only critical fields for quick status analysis.
 
-## Supported Custom Fields
+## Activity Types
 
-mj.sh automatically extracts these Trello custom fields (list type):
+| Type | Description |
+|------|-------------|
+| commentCard | Comments |
+| updateCard | Status changes |
+| updateCheckItemStateOnCard | Checklist item changes |
+| addMemberToCard / removeMemberFromCard | Member changes |
+| addAttachmentToCard / deleteAttachmentFromCard | Attachment changes |
+| addChecklistToCard | Checklist added |
+| updateCustomFieldItem | Custom field changes |
+| moveCardFromBoard | Card moved from another board |
+| createCard | Card created |
 
-- **Project** - Project identifier (LV, WTRC, SRP, etc.)
-- **Effort** - Estimated effort (small task, a day, few days, etc.)
-- **Priority** - Priority level (High, Medium, Low)
+## Documentation
 
-## Examples
-
-See [examples/](examples/) directory for:
-- Sample output files
-- Integration scripts
-- Morning routine automation
-
-## Development
-
-### Project Structure
-
-```
-mj/
-├── mj.sh              # Main script
-├── README.md          # This file
-├── CHANGELOG.md       # Version history
-├── LICENSE            # MIT License
-└── examples/          # Sample outputs and scripts
-```
-
-### Contributing
-
-This is an internal tool for Httplab. If you want to contribute:
-
-1. Test changes with real Trello exports
-2. Ensure backward compatibility
-3. Update CHANGELOG.md
-4. Follow existing code style
-
-### Versioning
-
-This project uses semantic versioning (MAJOR.MINOR.PATCH):
-- MAJOR: Breaking changes
-- MINOR: New features (backward compatible)
-- PATCH: Bug fixes
-
-Current version: **0.1.0**
-
-## Roadmap
-
-### v0.2 - Filtering
-- `--member <username>` - Filter by team member
-- `--status <n>` - Filter by list/status
-- `--critical` - Show only critical tasks
-- `--compact` - Minimal output (exclude description, checklists, attachments, activity)
-
-### v0.3 - Extended Fields
-- `--include-details` - Add description, checklists, attachments, linkedCards
-- `--include-archived --archived-days N` - Include recently archived cards
-
-### v0.4 - Activity
-- `--include-activity` - Add unified activity timeline
-
-### v1.0 - Stable Release
-- Full feature set
-- Comprehensive documentation
-- Migration guide from makejson.sh
-
-## Migration from makejson.sh
-
-If you're currently using `makejson.sh`:
-
-| makejson.sh | mj.sh |
-|-------------|-------|
-| `makejson.sh --board all-projects board.json` | `mj.sh --output result.json` |
-| Output: ~2-5 MB | Output: ~100 KB |
-| Requires multiple JSON files | Works with single export |
-
-mj.sh produces a simpler, flatter structure that's easier to parse and analyze.
+- [Full Specification](mj_spec.md) - Detailed field descriptions, technical details
+- [Changelog](CHANGELOG.md) - Version history
 
 ## Troubleshooting
 
 ### "jq: command not found"
-
-Install jq:
 ```bash
-brew install jq
+brew install jq  # macOS
+apt install jq   # Linux
 ```
 
 ### "File *all-projects.json not found"
-
-mj.sh looks for `*all-projects.json` on Desktop by default. Either:
-- Export Trello board to Desktop, or
-- Use `--input` to specify file location
+Use `--input` to specify file location, or export Trello board to Desktop.
 
 ### Custom fields are null
+Ensure your Trello board has custom fields named exactly "Project", "Effort", "Priority" (case-sensitive).
 
-Check that your Trello board has custom fields named exactly:
-- "Project"
-- "Effort"  
-- "Priority"
+## Roadmap
 
-Field names are case-sensitive.
+### v0.5 - Filters
+- `--labels <names>` - Filter by labels
+- `--project <n>` - Filter by project
+- `--unassigned` - Show unassigned tasks
+
+### v0.6 - Archives
+- `--include-archived` - Include archived cards
+- `--archived-days N` - Archived within N days
+
+### v1.0 - Stable Release
+- Full feature set
+- Migration guide from makejson.sh
 
 ## License
 
@@ -204,8 +173,3 @@ MIT License - see [LICENSE](LICENSE) file.
 ## Author
 
 Created by Olya Demchuk for Httplab team workflows.
-
-## Links
-
-- [Trello Developer Guide](https://developer.atlassian.com/cloud/trello/)
-- [jq Manual](https://stedolan.github.io/jq/manual/)
