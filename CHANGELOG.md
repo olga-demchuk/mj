@@ -111,3 +111,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 - `--search` now uses AND-logic for multiple words ("company cam" finds "CompanyCam")
+
+## [0.5.2] - 2025-11-26
+
+### Added
+- `--labels <names>` filter with OR-logic (comma-separated)
+
+### Changed
+- `--critical` now includes HP label (was only Priority)
+- `--critical` excludes Done and Recently Released statuses
+- `--critical` regex fixed: "ToDo HP" instead of "To Do HP"

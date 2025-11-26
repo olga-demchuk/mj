@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-VERSION="0.5.1"
+VERSION="0.5.2"
 DESKTOP_PATH="$HOME/Desktop"
 
 # Цвета для вывода
@@ -60,13 +60,15 @@ convert_to_mjson() {
     local critical_mode="$6"
     local unassigned_mode="$7"
     local search_keyword="$8"
+    local labels_filter="$9"
+    local labels_filter="$9"
     
     # Создаём временный файл для промежуточного результата
     local temp_file
     temp_file=$(mktemp)
     
     # jq фильтр для преобразования
-    jq -r --arg compact "$compact_mode" --arg member "$member_filter" --arg status_filter "$status_filter" --arg critical "$critical_mode" --arg unassigned "$unassigned_mode" --arg search "$search_keyword" '
+    jq -r --arg compact "$compact_mode" --arg member "$member_filter" --arg status_filter "$status_filter" --arg critical "$critical_mode" --arg unassigned "$unassigned_mode" --arg search "$search_keyword" --arg labels "$labels_filter" '
     # Создаём lookup tables для быстрого доступа
     . as $root |
     
@@ -107,10 +109,19 @@ convert_to_mjson() {
         # Получаем названия меток (нужно для фильтра critical)
         ([$card.idLabels[] | $labels_map[.] // empty]) as $label_names |
         
-        # Фильтруем по critical (определённые статусы ИЛИ лейбл Priority)
+        # Фильтруем по critical (определённые статусы ИЛИ лейблы Priority/HP, но НЕ Done)
         select(if $critical == "true" then (
-            ($status | test("To Do HP|To Fix|Testing|To Deploy|To Final Verification"; "i")) or
-            ($label_names | any(. == "Priority"))
+            (($status | test("Done|Recently Released"; "i")) | not) and
+            (
+                ($status | test("ToDo HP|To Fix|Testing|To Deploy|To Final Verification"; "i")) or
+                ($label_names | any(. == "Priority" or . == "HP"))
+            )
+        ) else true end) |
+        
+        # Фильтруем по labels (OR-логика: карточка с любым из указанных лейблов)
+        select(if $labels != "" then (
+            ($labels | split(",")) as $wanted |
+            ($label_names | any(. as $l | $wanted | any(. == $l)))
         ) else true end) |
         
         # Получаем usernames участников
@@ -269,9 +280,10 @@ Options:
     --input <file>      Use specific JSON file (default: find *all-projects.json on Desktop)
     --member <username> Filter cards by team member (Trello username)
     --status <name>     Filter cards by status (case-insensitive, partial match)
-    --critical          Filter critical tasks (statuses: To Do HP, To Fix, Testing, To Deploy, To Final Verification; OR label: Priority)
+    --critical          Filter critical tasks (statuses: ToDo HP, To Fix, Testing, To Deploy, To Final Verification; OR labels: Priority, HP; excludes Done)
     --unassigned        Filter cards without assignees
     --search <keyword>  Search cards by keyword in name and description (case-insensitive, multiple words = AND)
+    --labels <list>     Filter by labels (comma-separated, OR-logic: "Priority,HP")
     --compact           Minimal output (exclude description, checklists, attachments, linkedCards, activity)
     --version           Show version
     --help              Show this help
@@ -300,6 +312,11 @@ Examples:
     mj.sh --search Jensen --output jensen.json
     mj.sh --search "form tracking" --output formtracking.json
 
+    # Filter by labels (OR-logic)
+    mj.sh --labels "Priority,HP" --output urgent.json
+    mj.sh --labels "In Test,Incomplete" --output qa.json
+    mj.sh --labels "Ask Nate" --output ask_nate.json
+
     # Combine filters
     mj.sh --member slavaaq --status "In Progress" --output slava_in_progress.json
     mj.sh --critical --compact --output critical_compact.json
@@ -319,6 +336,8 @@ STATUS_FILTER=""
 CRITICAL_MODE=false
 UNASSIGNED_MODE=false
 SEARCH_KEYWORD=""
+LABELS_FILTER=""
+LABELS_FILTER=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -354,6 +373,10 @@ while [[ $# -gt 0 ]]; do
             SEARCH_KEYWORD="$2"
             shift 2
             ;;
+        --labels)
+            LABELS_FILTER="$2"
+            shift 2
+            ;;
         --version)
             echo "mj.sh v${VERSION}"
             exit 0
@@ -384,7 +407,7 @@ main() {
     fi
     
     # Конвертируем
-    convert_to_mjson "$INPUT_FILE" "$OUTPUT_FILE" "$COMPACT_MODE" "$MEMBER_FILTER" "$STATUS_FILTER" "$CRITICAL_MODE" "$UNASSIGNED_MODE" "$SEARCH_KEYWORD"
+    convert_to_mjson "$INPUT_FILE" "$OUTPUT_FILE" "$COMPACT_MODE" "$MEMBER_FILTER" "$STATUS_FILTER" "$CRITICAL_MODE" "$UNASSIGNED_MODE" "$SEARCH_KEYWORD" "$LABELS_FILTER"
 }
 
 main
