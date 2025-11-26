@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-VERSION="0.4.0"
+VERSION="0.4.1"
 DESKTOP_PATH="$HOME/Desktop"
 
 # Цвета для вывода
@@ -183,6 +183,7 @@ convert_to_mjson() {
                 elif .type == "addMemberToCard" then {member: ((.data.member.username // .data.member.name) // null)}
                 elif .type == "removeMemberFromCard" then {member: ((.data.member.username // .data.member.name) // null)}
                 elif .type == "addAttachmentToCard" then {attachment: .data.attachment.name}
+                elif .type == "deleteAttachmentFromCard" then {attachment: .data.attachment.name}
                 elif .type == "addChecklistToCard" then {checklist: .data.checklist.name}
                 elif .type == "createCard" then {list: .data.list.name}
                 elif .type == "updateCard" then null  # Skip position-only updates

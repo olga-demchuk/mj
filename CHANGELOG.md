@@ -91,3 +91,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Activity types: commentCard, updateCard (status changes), updateCheckItemStateOnCard, addMemberToCard, removeMemberFromCard, addAttachmentToCard, addChecklistToCard, createCard
 - Position-only updateCard events filtered out
 - Activities sorted by date (newest first)
+
+## [0.4.1] - 2025-11-26
+
+### Added
+- `deleteAttachmentFromCard` activity type with attachment name
