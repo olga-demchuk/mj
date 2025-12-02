@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # mj.sh - Trello JSON to mJSON converter
-# Version: 0.4.0
-# Date: 2025-11-26
+# Version: 0.6.0
+# Date: 2025-12-02
 
 set -euo pipefail
 
-VERSION="0.5.2"
+VERSION="0.6.0"
 DESKTOP_PATH="$HOME/Desktop"
 
 # Цвета для вывода
@@ -61,14 +61,14 @@ convert_to_mjson() {
     local unassigned_mode="$7"
     local search_keyword="$8"
     local labels_filter="$9"
-    local labels_filter="$9"
+    local include_archived="${10}"
     
     # Создаём временный файл для промежуточного результата
     local temp_file
     temp_file=$(mktemp)
     
     # jq фильтр для преобразования
-    jq -r --arg compact "$compact_mode" --arg member "$member_filter" --arg status_filter "$status_filter" --arg critical "$critical_mode" --arg unassigned "$unassigned_mode" --arg search "$search_keyword" --arg labels "$labels_filter" '
+    jq -r --arg compact "$compact_mode" --arg member "$member_filter" --arg status_filter "$status_filter" --arg critical "$critical_mode" --arg unassigned "$unassigned_mode" --arg search "$search_keyword" --arg labels "$labels_filter" --arg include_archived "$include_archived" '
     # Создаём lookup tables для быстрого доступа
     . as $root |
     
@@ -90,7 +90,8 @@ convert_to_mjson() {
     # Обрабатываем карточки
     $root.cards |
     map(
-        select(.closed == false) |  # Только незаархивированные
+        # Фильтруем архивные карточки только если include_archived == "false"
+        select(if $include_archived == "true" then true else .closed == false end) |
         . as $card |
         
         # Получаем имя списка
@@ -284,6 +285,7 @@ Options:
     --unassigned        Filter cards without assignees
     --search <keyword>  Search cards by keyword in name and description (case-insensitive, multiple words = AND)
     --labels <list>     Filter by labels (comma-separated, OR-logic: "Priority,HP")
+    --include-archived  Include archived cards (default: only active cards)
     --compact           Minimal output (exclude description, checklists, attachments, linkedCards, activity)
     --version           Show version
     --help              Show this help
@@ -312,6 +314,10 @@ Examples:
     mj.sh --search Jensen --output jensen.json
     mj.sh --search "form tracking" --output formtracking.json
 
+    # Search including archived cards
+    mj.sh --search A1 --include-archived --output a1_all.json
+    mj.sh --search "review app" --include-archived --output review_all.json
+
     # Filter by labels (OR-logic)
     mj.sh --labels "Priority,HP" --output urgent.json
     mj.sh --labels "In Test,Incomplete" --output qa.json
@@ -337,7 +343,7 @@ CRITICAL_MODE=false
 UNASSIGNED_MODE=false
 SEARCH_KEYWORD=""
 LABELS_FILTER=""
-LABELS_FILTER=""
+INCLUDE_ARCHIVED=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -377,6 +383,10 @@ while [[ $# -gt 0 ]]; do
             LABELS_FILTER="$2"
             shift 2
             ;;
+        --include-archived)
+            INCLUDE_ARCHIVED=true
+            shift
+            ;;
         --version)
             echo "mj.sh v${VERSION}"
             exit 0
@@ -407,7 +417,7 @@ main() {
     fi
     
     # Конвертируем
-    convert_to_mjson "$INPUT_FILE" "$OUTPUT_FILE" "$COMPACT_MODE" "$MEMBER_FILTER" "$STATUS_FILTER" "$CRITICAL_MODE" "$UNASSIGNED_MODE" "$SEARCH_KEYWORD" "$LABELS_FILTER"
+    convert_to_mjson "$INPUT_FILE" "$OUTPUT_FILE" "$COMPACT_MODE" "$MEMBER_FILTER" "$STATUS_FILTER" "$CRITICAL_MODE" "$UNASSIGNED_MODE" "$SEARCH_KEYWORD" "$LABELS_FILTER" "$INCLUDE_ARCHIVED"
 }
 
 main
