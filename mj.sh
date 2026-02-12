@@ -2,11 +2,11 @@
 
 # mj.sh - Trello JSON to mJSON converter
 # Version: 0.6.0
-# Date: 2025-12-02
+# Date: 2026-02-12
 
 set -euo pipefail
 
-VERSION="0.6.0"
+VERSION="0.6.1"
 DESKTOP_PATH="$HOME/Desktop"
 
 # Цвета для вывода
@@ -254,6 +254,20 @@ convert_to_mjson() {
             due: $card.due,
             archived: $card.closed,
             isMirror: $is_mirror
+        } +
+        # qaAssignee - массив QA engineers (может быть несколько)
+        {
+            qaAssignee: (
+                if $status == "Testing" then
+                    ([$card_activity[] | 
+                        select(
+                            (.type == "updateCard" and .data.to == "Testing") or
+                            (.type == "addChecklistToCard" and (.data.checklist | test("^Fix"; "i")))
+                        ) | .user
+                    ] | unique)
+                else []
+                end
+            )
         }
     )
     ' "$input_file" > "$temp_file"

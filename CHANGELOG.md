@@ -121,3 +121,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - `--critical` now includes HP label (was only Priority)
 - `--critical` excludes Done and Recently Released statuses
 - `--critical` regex fixed: "ToDo HP" instead of "To Do HP"
+
+## [0.6.1] - 2026-02-12
+
+### Added
+- `qaAssignee` field (array) for cards in Testing status
+- Auto-detects QA engineers from activity: users who moved card to Testing OR added Fix checklist
+- Returns empty array [] for non-Testing cards
+- Supports multiple QA engineers per card
